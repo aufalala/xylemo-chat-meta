@@ -10,7 +10,7 @@ const app = express();
 
 app.use(bodyParser.json());
 
-app.get('/webhook', (req, res) => {
+app.get('/facebook/webhook', (req, res) => {
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
     const challenge = req.query['hub.challenge'];
@@ -23,7 +23,7 @@ app.get('/webhook', (req, res) => {
     }
 });
 
-app.post('/webhook', (req, res) => {
+app.post('/facebook/webhook', (req, res) => {
     console.log('Webhook payload:', JSON.stringify(req.body, null, 2));
     res.sendStatus(200);
 });
