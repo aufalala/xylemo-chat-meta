@@ -10,7 +10,17 @@ const app = express();
 
 app.use(bodyParser.json());
 
-app.get('/facebook/webhook', (req, res) => {
+app.use((req, res, next) => {
+    console.log('--- Incoming Request ---');
+    console.log('Method:', req.method);
+    console.log('URL:', req.url);
+    console.log('Query:', req.query);
+    console.log('Body:', req.body);
+    console.log('------------------------');
+    next();
+});
+
+app.get('/instagram', (req, res) => {
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
     const challenge = req.query['hub.challenge'];
@@ -23,7 +33,7 @@ app.get('/facebook/webhook', (req, res) => {
     }
 });
 
-app.post('/facebook/webhook', (req, res) => {
+app.post('/instagram', (req, res) => {
     console.log('Webhook payload:', JSON.stringify(req.body, null, 2));
     res.sendStatus(200);
 });
