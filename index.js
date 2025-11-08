@@ -1,24 +1,48 @@
 const express = require('express');
 require('dotenv').config();
-// const bodyParser = require('body-parser');
+
+const { Queue } = require('bullmq');
+const IORedis = require('ioredis');
 
 const PORT = process.env.PORT || 3000;
-
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
+const redisUrl = process.env.REDIS_URL;
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+
+const redisConnection = new IORedis(redisUrl, {
+  maxRetriesPerRequest: null,
+  enableReadyCheck: false,
+  lazyConnect: true,
+  tls: redisUrl.startsWith("rediss://") ? {} : undefined,
+});
+
+redisConnection.on("connect", () => console.log(`Redis connecting...`));
+redisConnection.on("ready", () => console.log(`Redis ready!`));
+redisConnection.on("error", (e) => console.error(`Redis error:`, e.message));
+redisConnection.on("close", () => console.log(`Redis connection closed`));
+
+async function connectRedis() {
+  if (redisConnection.status !== "ready") {
+    try {
+      await redisConnection.connect();
+    } catch (e) {
+      if (!e.message.includes("already connecting") && !e.message.includes("already connected")) {
+        throw e;
+      }
+    }
+  }
+  return redisConnection;
+}
+
+const chatReceiverQueue = new Queue('chat-receiver-queue', { connection: redisConnection });
+
+//////////////////////////////////////////////////////////////////////////////////////////////
 
 const app = express();
-
 app.use(express.json());
 
-// app.use((req, res, next) => {
-//     console.log('--- Incoming Request ---');
-//     console.log('Method:', req.method);
-//     console.log('URL:', req.url);
-//     console.log('Query:', req.query);
-//     console.log('Body:', req.body);
-//     console.log('------------------------');
-//     next();
-// });
+//////////////////////////////////////////////////////////////////////////////////////////////
 
 app.get('/instagram', (req, res) => {
     const mode = req.query['hub.mode'];
@@ -33,25 +57,35 @@ app.get('/instagram', (req, res) => {
     }
 });
 
-app.post('/instagram', (req, res) => {
+app.post('/instagram', async (req, res) => {
   const entries = req.body.entry || [];
 
-  entries.forEach(entry => {
+  for (const entry of entries) {
     const time = entry.time;
 
-    (entry.changes || []).forEach(change => {
+    for (const change of entry.changes || []) {
       if (change.field === 'live_comments') {
         const username = change.value?.from?.username;
         const text = change.value?.text;
+        const platform = "instagram";
 
         if (username && text) {
-          console.log(`Time: ${time}, Username: ${username}, Text: ${text}`);
+          console.log(`Time: ${time}, Username: ${username}, Text: ${text}, Platform: ${platform}`);
+          await chatReceiverQueue.add("instagram-chat", {
+            time,
+            username,
+            text,
+            platform,
+          });
         }
       }
-    });
-  });
+    }
+  }
 
   res.sendStatus(200);
 });
 
+//////////////////////////////////////////////////////////////////////////////////////////////
+
+connectRedis();
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
