@@ -4,9 +4,9 @@ require('dotenv').config();
 const { Queue } = require('bullmq');
 const IORedis = require('ioredis');
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
-const redisUrl = process.env.REDIS_URL;
+const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
 
 //////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -61,19 +61,31 @@ app.post('/instagram', async (req, res) => {
   const entries = req.body.entry || [];
 
   for (const entry of entries) {
-    const time = entry.time;
+    const time = String(entry.time*1000);
 
     for (const change of entry.changes || []) {
       if (change.field === 'live_comments') {
         const username = change.value?.from?.username;
+        const platformId = change.value?.from?.id
+          ? `ig.${change.value.from.id}`
+          : undefined;
         const text = change.value?.text;
         const platform = "instagram";
 
-        if (username && text) {
-          console.log(`Time: ${time}, Username: ${username}, Text: ${text}, Platform: ${platform}`);
+        if (username && text && platformId) {
+          
+          console.log({
+            time,
+            username,
+            platformId,
+            text,
+            platform,
+          });
+
           await chatReceiverQueue.add("instagram-chat", {
             time,
             username,
+            platformId,
             text,
             platform,
           });
