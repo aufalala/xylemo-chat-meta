@@ -61,7 +61,7 @@ app.post('/instagram', async (req, res) => {
   const entries = req.body.entry || [];
 
   for (const entry of entries) {
-    const time = String(entry.time*1000);
+    const timeUTC = entry.time*1000;
 
     for (const change of entry.changes || []) {
       if (change.field === 'live_comments') {
@@ -74,21 +74,18 @@ app.post('/instagram', async (req, res) => {
 
         if (username && text && platformId) {
           
-          console.log({
-            time,
+          const payload = { 
+            timeUTC,
             username,
             platformId,
             text,
             platform,
-          });
+            nickname: null,
+          }
 
-          await chatReceiverQueue.add("instagram-chat", {
-            time,
-            username,
-            platformId,
-            text,
-            platform,
-          });
+          console.log(payload);
+
+          await chatReceiverQueue.add("instagram-chat", payload);
         }
       }
     }
