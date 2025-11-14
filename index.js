@@ -85,7 +85,10 @@ app.post('/instagram', async (req, res) => {
 
           console.log(payload);
 
-          await chatReceiverQueue.add("instagram-chat", payload);
+          await chatReceiverQueue.add("instagram-chat", payload, {
+            removeOnComplete: true,
+            removeOnFail: false,
+          });
         }
       }
     }
